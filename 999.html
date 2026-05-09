@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>9x9 經典數獨解題器</title>
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            margin: 0;
+        }
+        h1 { margin-bottom: 20px; }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: #0056b3;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #004494; }
+        button.btn-clear { background-color: #dc3545; }
+        button.btn-clear:hover { background-color: #b02a37; }
+        
+        #msg {
+            font-weight: bold;
+            font-size: 16px;
+            color: #d9534f;
+            width: 250px;
+        }
+
+        #sudoku-grid {
+            display: inline-grid;
+            grid-template-columns: repeat(9, 50px);
+            grid-template-rows: repeat(9, 50px);
+            gap: 0;
+            border: 3px solid #111;
+            background-color: #111;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        input.cell {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            color: #000;
+            outline: none;
+            padding: 0;
+            margin: 0;
+        }
+        input.cell:focus { background-color: #e8f0fe; }
+        
+        /* 隱藏數字輸入框原生的上下箭頭 */
+        input.cell::-webkit-outer-spin-button,
+        input.cell::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* 產生 3x3 區塊的粗框線 */
+        .right-border { border-right: 3px solid #111 !important; }
+        .bottom-border { border-bottom: 3px solid #111 !important; }
+        
+        .solved-text { color: #0066cc !important; } /* 解答出來的數字顏色 */
+    </style>
+</head>
+<body>
+
+    <h1>9x9 經典數獨解題器</h1>
+    <div class="controls">
+        <button onclick="startSolve()">解出解答</button>
+        <button class="btn-clear" onclick="clearBoard()">清空盤面</button>
+        <span id="msg">請輸入數字 (1-9)</span>
+    </div>
+
+    <div id="sudoku-grid"></div>
+
+<script>
+    const size = 9;
+    const gridEl = document.getElementById('sudoku-grid');
+    let cells = [];
+
+    // 初始化 9x9 輸入格
+    function initGrid() {
+        gridEl.innerHTML = '';
+        cells = [];
+        for (let r = 0; r < size; r++) {
+            let row = [];
+            for (let c = 0; c < size; c++) {
+                let input = document.createElement('input');
+                input.type = 'number';
+                input.min = 1;
+                input.max = 9;
+                input.className = 'cell';
+                
+                // 每 3 格加上粗邊線 (切分九宮格)
+                if (c % 3 === 2 && c !== 8) input.classList.add('right-border');
+                if (r % 3 === 2 && r !== 8) input.classList.add('bottom-border');
+
+                // 輸入驗證：只能輸入 1-9
+                input.addEventListener('input', function() {
+                    let val = parseInt(this.value);
+                    if (val < 1 || val > 9) this.value = '';
+                    this.classList.remove('solved-text'); 
+                });
+
+                gridEl.appendChild(input);
+                row.push(input);
+            }
+            cells.push(row);
+        }
+    }
+
+    function clearBoard() {
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                cells[r][c].value = '';
+                cells[r][c].classList.remove('solved-text');
+                cells[r][c].style.backgroundColor = '#fff';
+            }
+        }
+        document.getElementById('msg').innerText = "已清空。請輸入數字。";
+        document.getElementById('msg').style.color = "#333";
+    }
+
+    // 檢查在 (r, c) 填入 num 是否合法
+    function isValid(board, r, c, num) {
+        // 檢查同行與同列
+        for (let i = 0; i < size; i++) {
+            if (board[r][i] === num) return false;
+            if (board[i][c] === num) return false;
+        }
+        // 檢查 3x3 小方塊
+        let startRow = Math.floor(r / 3) * 3;
+        let startCol = Math.floor(c / 3) * 3;
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (board[startRow + i][startCol + j] === num) return false;
+            }
+        }
+        return true;
+    }
+
+    // 經典回溯法求解 9x9 數獨
+    function solveSudoku(board) {
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                if (board[r][c] === 0) {
+                    for (let num = 1; num <= 9; num++) {
+                        if (isValid(board, r, c, num)) {
+                            board[r][c] = num;
+                            if (solveSudoku(board)) {
+                                return true;
+                            }
+                            board[r][c] = 0; // 回溯
+                        }
+                    }
+                    return false; // 1~9 都不能填，代表前面的路錯了
+                }
+            }
+        }
+        return true; // 已經沒有 0 (空格) 了，解題完成
+    }
+
+    function startSolve() {
+        const msgEl = document.getElementById('msg');
+        msgEl.innerText = "計算中...";
+        msgEl.style.color = "#d9534f";
+
+        setTimeout(() => {
+            let board = [];
+            // 1. 讀取畫面上的數字
+            for (let r = 0; r < size; r++) {
+                let row = [];
+                for (let c = 0; c < size; c++) {
+                    let val = parseInt(cells[r][c].value) || 0;
+                    row.push(val);
+                    if (val !== 0) {
+                        cells[r][c].style.backgroundColor = '#ddd'; // 標記原本的題目背景
+                    }
+                }
+                board.push(row);
+            }
+
+            // 2. 先簡單檢查題目本身有沒有明顯衝突
+            let isConflict = false;
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (board[r][c] !== 0) {
+                        let temp = board[r][c];
+                        board[r][c] = 0; 
+                        if (!isValid(board, r, c, temp)) {
+                            isConflict = true;
+                        }
+                        board[r][c] = temp;
+                    }
+                }
+            }
+
+            if (isConflict) {
+                msgEl.innerText = "題目有衝突！請檢查輸入的數字。";
+                return;
+            }
+
+            // 3. 執行求解
+            let start = performance.now();
+            let success = solveSudoku(board);
+            let end = performance.now();
+
+            if (success) {
+                // 將解答寫回畫面，並用藍色標記
+                for (let r = 0; r < size; r++) {
+                    for (let c = 0; c < size; c++) {
+                        if (cells[r][c].value === '') {
+                            cells[r][c].value = board[r][c];
+                            cells[r][c].classList.add('solved-text');
+                        }
+                    }
+                }
+                msgEl.innerText = `解題成功！耗時: ${(end - start).toFixed(1)} 毫秒`;
+                msgEl.style.color = "#28a745";
+            } else {
+                msgEl.innerText = "此盤面無解！";
+                msgEl.style.color = "#d9534f";
+            }
+        }, 50);
+    }
+
+    // 執行初始化
+    initGrid();
+</script>
+
+</body>
+</html>
